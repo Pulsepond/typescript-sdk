@@ -42,7 +42,7 @@
   "packageManager": "pnpm@10.34.5",
   "scripts": {
     "build": "node scripts/clean.mjs && tsc -p tsconfig.build.json",
-    "check": "corepack pnpm typecheck && corepack pnpm test && corepack pnpm build && corepack pnpm test:browser && corepack pnpm check:package",
+    "check": "npm run typecheck && npm test && npm run build && npm run test:browser && npm run check:package",
     "check:package": "node scripts/check-package.mjs",
     "test": "node --import tsx --test test/*.test.ts",
     "test:browser": "node --import tsx --test test/browser.e2e.ts",

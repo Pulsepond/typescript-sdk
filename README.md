@@ -195,12 +195,12 @@ const pulsepond = createPulsepond({
 Requirements:
 
 - Node.js 22.12 or newer
-- Corepack with pnpm 10.34.5
+- pnpm 10.34.5
 - a system Chrome or Chromium for the real-browser contract test
 
 ```sh
-corepack pnpm install
-corepack pnpm check
+pnpm install
+pnpm check
 ```
 
 `pnpm check` runs strict TypeScript checking, unit tests, the pinned Pulsepond

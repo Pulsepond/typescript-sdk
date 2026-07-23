@@ -7,9 +7,8 @@ Thank you for helping improve the Pulsepond TypeScript SDK.
 Use Node.js 22.12 or newer and the pnpm version declared in `package.json`.
 
 ```sh
-corepack enable
-corepack pnpm install
-corepack pnpm check
+pnpm install
+pnpm check
 ```
 
 Every behavior change should include a test. Delivery changes should cover

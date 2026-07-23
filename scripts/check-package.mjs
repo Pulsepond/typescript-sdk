@@ -7,11 +7,11 @@ import { spawn } from "node:child_process";
 const temporaryDirectory = await mkdtemp(join(tmpdir(), "pulsepond-package-"));
 
 try {
-  await run("corepack", [
-    "pnpm",
+  await run("npm", [
     "pack",
     "--pack-destination",
     temporaryDirectory,
+    "--ignore-scripts",
   ]);
   const archivePath = join(
     temporaryDirectory,
