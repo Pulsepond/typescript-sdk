@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 
 const temporaryDirectory = await mkdtemp(join(tmpdir(), "pulsepond-package-"));
+const packageJson = JSON.parse(await readFile("package.json", "utf8"));
 
 try {
   await run("npm", [
@@ -15,7 +16,9 @@ try {
   ]);
   const archivePath = join(
     temporaryDirectory,
-    "pulsepond-typescript-sdk-0.1.0.tgz",
+    `${packageJson.name
+      .replace(/^@/, "")
+      .replaceAll("/", "-")}-${packageJson.version}.tgz`,
   );
   const files = (await run("tar", ["-tzf", archivePath]))
     .split("\n")
@@ -29,9 +32,7 @@ try {
   assert.equal(files.includes("package/README.md"), true);
   assert.equal(files.includes("package/package.json"), true);
 
-  const packageJson = JSON.parse(await readFile("package.json", "utf8"));
   assert.equal(packageJson.name, "@pulsepond/typescript-sdk");
-  assert.equal(packageJson.version, "0.1.0");
   assert.equal(packageJson.publishConfig.access, "public");
   assert.equal(packageJson.publishConfig.provenance, true);
 } finally {
