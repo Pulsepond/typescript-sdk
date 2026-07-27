@@ -12,8 +12,8 @@ transport, React bindings, automatic capture, or identity APIs.
 pnpm add @pulsepond/typescript-sdk
 ```
 
-The package is not published until the first release is approved. During
-development, install the packed tarball produced by `pnpm pack`.
+For local unreleased changes, install the packed tarball produced by
+`pnpm pack`.
 
 ## Configure
 
@@ -212,16 +212,16 @@ The browser test finds common Linux Chrome paths. Set
 
 ## Release
 
-Version `0.1.0` requires one authenticated public publish because npm only
-allows Trusted Publishing to be configured for an existing package. After
-that bootstrap, configure the package for GitHub organization `Pulsepond`,
-repository `typescript-sdk`, workflow `publish.yml`, with `npm publish`
-allowed.
-
-All later GitHub Releases publish the matching package version through npm
+Pull requests and pushes to `main` run the complete `pnpm check` quality gate.
+Stable GitHub Releases publish the matching package version through npm
 Trusted Publishing. The release tag must be `v<package.json version>` and its
-commit must be part of `main`. The workflow uses short-lived OIDC credentials;
-do not add an npm publish token to the repository.
+commit must be part of `main`.
+
+The publish workflow reruns the complete quality gate and uses short-lived
+OIDC credentials with npm provenance. It ignores GitHub prereleases so they
+cannot accidentally replace the npm `latest` tag. Do not add an npm publish
+token to the repository. See [CONTRIBUTING.md](CONTRIBUTING.md) for the release
+procedure.
 
 ## License
 
