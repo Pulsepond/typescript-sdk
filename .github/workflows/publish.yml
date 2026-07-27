@@ -11,6 +11,7 @@ permissions:
 
 concurrency:
   group: npm-publish
+  queue: max
   cancel-in-progress: false
 
 jobs:

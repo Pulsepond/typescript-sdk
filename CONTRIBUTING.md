@@ -55,5 +55,5 @@ tagged commit belongs to `main`, and that the full quality gate passes before
 publishing. npm authentication uses the configured GitHub OIDC Trusted
 Publisher. Never add an npm token to GitHub.
 
-GitHub prereleases are deliberately ignored because this project does not yet
-define an npm prerelease dist-tag policy.
+GitHub prereleases and prerelease version strings are deliberately rejected
+because this project does not yet define an npm prerelease dist-tag policy.
