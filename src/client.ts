@@ -3,7 +3,7 @@ import {
   PulsepondValidationError,
 } from "./errors.js";
 import { IdentityManager } from "./identity.js";
-import { createUuidV7 } from "./ids.js";
+import { createUuidV7, isCanonicalAnonymousId } from "./ids.js";
 import {
   createEvent,
   MAX_BATCH_EVENTS,
@@ -14,6 +14,7 @@ import {
 } from "./protocol.js";
 import {
   createBrowserRuntime,
+  createServerRuntime,
   type PulsepondRuntime,
   type RuntimeResponse,
 } from "./runtime.js";
@@ -23,6 +24,9 @@ import type {
   PulsepondClient,
   PulsepondConfig,
   PulsepondDiagnostic,
+  PulsepondServerClient,
+  PulsepondServerConfig,
+  PulsepondServerEventContext,
 } from "./types.js";
 
 const WRITE_KEY =
@@ -44,7 +48,8 @@ interface ResolvedConfig {
   readonly environment: string;
   readonly appVersion?: string;
   readonly release?: string;
-  readonly persistence: IdentityPersistence;
+  readonly platform: "server" | "web";
+  readonly persistence?: IdentityPersistence;
   readonly storageNamespace?: string;
   readonly batchSize: number;
   readonly flushIntervalMs: number;
@@ -79,13 +84,38 @@ export function createPulsepondWithRuntime(
   config: PulsepondConfig,
   runtime: PulsepondRuntime,
 ): PulsepondClient {
-  return new BrowserPulsepondClient(resolveConfig(config), runtime);
+  return new PulsepondClientImpl(resolveConfig(config, "web"), runtime);
 }
 
-class BrowserPulsepondClient implements PulsepondClient {
+export function createPulsepondServer(
+  config: PulsepondServerConfig,
+): PulsepondServerClient {
+  return createPulsepondServerWithRuntime(config, createServerRuntime());
+}
+
+export function createPulsepondServerWithRuntime(
+  config: PulsepondServerConfig,
+  runtime: PulsepondRuntime,
+): PulsepondServerClient {
+  const implementation = new PulsepondClientImpl(
+    resolveConfig(config, "server"),
+    runtime,
+  );
+  return Object.freeze({
+    track: (
+      eventName: string,
+      context: PulsepondServerEventContext,
+      properties?: EventProperties,
+    ) => implementation.trackServer(eventName, context, properties),
+    flush: () => implementation.flush(),
+    shutdown: () => implementation.shutdown(),
+  });
+}
+
+class PulsepondClientImpl implements PulsepondClient {
   readonly #config: ResolvedConfig;
   readonly #runtime: PulsepondRuntime;
-  readonly #identity: IdentityManager;
+  readonly #identity: IdentityManager | undefined;
   readonly #removePageHideListener: (() => void) | undefined;
   readonly #queue: QueuedEvent[] = [];
   #queueBytes = 0;
@@ -108,22 +138,59 @@ class BrowserPulsepondClient implements PulsepondClient {
     this.#config = config;
     this.#runtime = runtime;
     this.#effectiveBatchSize = config.batchSize;
-    this.#identity = new IdentityManager(
-      config.persistence,
-      config.storageNamespace,
-      runtime,
-      (diagnostic) => {
-        this.#notify(diagnostic);
-      },
-    );
-    this.#removePageHideListener = runtime.addPageHideListener(() => {
-      void this.#flushForPageHide();
-    });
+    if (config.platform === "web") {
+      this.#identity = new IdentityManager(
+        config.persistence ?? "memory",
+        config.storageNamespace,
+        runtime,
+        (diagnostic) => {
+          this.#notify(diagnostic);
+        },
+      );
+      this.#removePageHideListener = runtime.addPageHideListener(() => {
+        void this.#flushForPageHide();
+      });
+    }
   }
 
   track(
     eventName: string,
     properties?: EventProperties,
+  ): string | null {
+    const identity = this.#identity;
+    if (identity === undefined) {
+      throw new PulsepondConfigurationError(
+        "Browser event identity is unavailable",
+      );
+    }
+    const now = this.#runtime.now();
+    return this.#enqueue(
+      eventName,
+      identity.current(now),
+      properties,
+      now,
+    );
+  }
+
+  trackServer(
+    eventName: string,
+    context: PulsepondServerEventContext,
+    properties?: EventProperties,
+  ): string | null {
+    validateServerEventContext(context);
+    return this.#enqueue(
+      eventName,
+      context,
+      properties,
+      this.#runtime.now(),
+    );
+  }
+
+  #enqueue(
+    eventName: string,
+    identity: PulsepondServerEventContext,
+    properties: EventProperties | undefined,
+    now: number,
   ): string | null {
     if (this.#closing || this.#closed) {
       throw new PulsepondValidationError(
@@ -142,14 +209,13 @@ class BrowserPulsepondClient implements PulsepondClient {
       return null;
     }
 
-    const now = this.#runtime.now();
-    const identity = this.#identity.current(now);
     const event = createEvent({
       anonymousInstallationId: identity.anonymousInstallationId,
       environment: this.#config.environment,
       eventId: createUuidV7(now, this.#runtime.randomBytes),
       eventName,
       occurredAt: new Date(now).toISOString(),
+      platform: this.#config.platform,
       byteLength: this.#runtime.byteLength,
       sessionId: identity.sessionId,
       ...(properties === undefined ? {} : { properties }),
@@ -241,7 +307,7 @@ class BrowserPulsepondClient implements PulsepondClient {
     this.#flushTargetSequence = 0;
     this.#resetRetryState();
     this.#effectiveBatchSize = this.#config.batchSize;
-    this.#identity.reset(this.#runtime.now());
+    this.#identity?.reset(this.#runtime.now());
   }
 
   shutdown(): Promise<void> {
@@ -432,17 +498,21 @@ class BrowserPulsepondClient implements PulsepondClient {
       const response = await this.#runtime.fetch(this.#config.endpoint, {
         body: batch.body,
         cache: "no-store",
-        credentials: "omit",
         headers: {
           Authorization: `Bearer ${this.#config.writeKey}`,
           "Content-Type": "application/json",
         },
-        keepalive,
         method: "POST",
-        mode: "cors",
         redirect: "error",
-        referrerPolicy: "no-referrer",
         signal: controller.signal,
+        ...(this.#config.platform === "web"
+          ? {
+              credentials: "omit",
+              keepalive,
+              mode: "cors",
+              referrerPolicy: "no-referrer",
+            }
+          : {}),
       });
       if (response.status === 202) {
         return { kind: "accepted" };
@@ -638,7 +708,10 @@ class BrowserPulsepondClient implements PulsepondClient {
   }
 }
 
-function resolveConfig(config: PulsepondConfig): ResolvedConfig {
+function resolveConfig(
+  config: PulsepondConfig | PulsepondServerConfig,
+  platform: "server" | "web",
+): ResolvedConfig {
   if (config === null || typeof config !== "object") {
     throw new PulsepondConfigurationError(
       "Pulsepond configuration is required",
@@ -659,25 +732,37 @@ function resolveConfig(config: PulsepondConfig): ResolvedConfig {
     validateOptionalText("release", config.release);
   });
 
-  const persistence = config.persistence ?? "memory";
-  if (
-    persistence !== "memory" &&
-    persistence !== "localStorage"
-  ) {
-    throw new PulsepondConfigurationError(
-      "persistence must be memory or localStorage",
-    );
-  }
-  if (persistence === "localStorage") {
-    const storageNamespace = config.storageNamespace;
-    if (storageNamespace === undefined) {
+  const browserConfig = config as PulsepondConfig;
+  const persistence = browserConfig.persistence ?? "memory";
+  if (platform === "server") {
+    if (
+      browserConfig.persistence !== undefined ||
+      browserConfig.storageNamespace !== undefined
+    ) {
       throw new PulsepondConfigurationError(
-        "storageNamespace is required with localStorage persistence",
+        "Server clients do not accept browser identity storage options",
       );
     }
-    validateConfigurationField(() => {
-      validateStorageNamespace(storageNamespace);
-    });
+  } else {
+    if (
+      persistence !== "memory" &&
+      persistence !== "localStorage"
+    ) {
+      throw new PulsepondConfigurationError(
+        "persistence must be memory or localStorage",
+      );
+    }
+    if (persistence === "localStorage") {
+      const storageNamespace = browserConfig.storageNamespace;
+      if (storageNamespace === undefined) {
+        throw new PulsepondConfigurationError(
+          "storageNamespace is required with localStorage persistence",
+        );
+      }
+      validateConfigurationField(() => {
+        validateStorageNamespace(storageNamespace);
+      });
+    }
   }
   if (
     config.onDiagnostic !== undefined &&
@@ -721,7 +806,7 @@ function resolveConfig(config: PulsepondConfig): ResolvedConfig {
     endpoint,
     writeKey: config.writeKey,
     environment: config.environment,
-    persistence,
+    platform,
     batchSize,
     flushIntervalMs,
     maxQueueSize,
@@ -732,13 +817,29 @@ function resolveConfig(config: PulsepondConfig): ResolvedConfig {
     ...(config.release === undefined
       ? {}
       : { release: config.release }),
-    ...(config.storageNamespace === undefined
+    ...(platform === "server" ? {} : { persistence }),
+    ...(browserConfig.storageNamespace === undefined
       ? {}
-      : { storageNamespace: config.storageNamespace }),
+      : { storageNamespace: browserConfig.storageNamespace }),
     ...(config.onDiagnostic === undefined
       ? {}
       : { onDiagnostic: config.onDiagnostic }),
   });
+}
+
+function validateServerEventContext(
+  context: PulsepondServerEventContext,
+): void {
+  if (
+    context === null ||
+    typeof context !== "object" ||
+    !isCanonicalAnonymousId(context.anonymousInstallationId) ||
+    !isCanonicalAnonymousId(context.sessionId)
+  ) {
+    throw new PulsepondValidationError(
+      "Server event context requires canonical UUIDv4 or UUIDv7 installation and session IDs",
+    );
+  }
 }
 
 function validateEndpoint(value: string): string {

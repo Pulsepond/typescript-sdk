@@ -1,10 +1,12 @@
 # Pulsepond TypeScript SDK
 
-`@pulsepond/typescript-sdk` is the browser SDK for sending explicit,
-privacy-conscious product events to a self-hosted Pulsepond Worker.
+`@pulsepond/typescript-sdk` sends explicit, privacy-conscious product events
+from browsers, modern Node.js applications, and Cloudflare Workers to a
+self-hosted Pulsepond Worker.
 
-Version `0.1` is browser-only and ESM-only. It does not include a Node.js
-transport, React bindings, automatic capture, or identity APIs.
+Version `0.2` is ESM-only. It does not include React bindings, automatic
+capture, or user identity APIs. React applications can use the separate
+`@pulsepond/react-sdk` binding.
 
 ## Install
 
@@ -15,7 +17,7 @@ pnpm add @pulsepond/typescript-sdk
 For local unreleased changes, install the packed tarball produced by
 `pnpm pack`.
 
-## Configure
+## Browser client
 
 Create one client for a Pulsepond source. `endpoint` is the exact public
 ingestion route, including `/v1/batch`.
@@ -56,10 +58,55 @@ await pulsepond.shutdown();
 `reset()` discards unsent events and rotates the random installation and
 session IDs. It cannot retract an event that the Worker has already accepted.
 
-## Identity persistence
+## Server client
 
-The default is memory-only. No Cookie, local storage, or session storage is
-read or written:
+Server applications use the same bounded batching, retry, TTL, and protocol
+implementation without browser storage or lifecycle behavior:
+
+```ts
+import { createPulsepondServer } from "@pulsepond/typescript-sdk";
+
+const pulsepond = createPulsepondServer({
+  endpoint: "https://events.example.com/v1/batch",
+  writeKey: "ppw_v1_...",
+  environment: "production",
+  appVersion: "1.4.0",
+  release: "api@1.4.0",
+});
+
+pulsepond.track(
+  "purchase_success",
+  {
+    anonymousInstallationId: installationId,
+    sessionId,
+  },
+  { currency: "JPY", value: 1200 },
+);
+
+await pulsepond.flush();
+```
+
+The application must supply a canonical lowercase UUIDv4 or UUIDv7 for both
+identifiers on every event. The SDK does not derive IDs from an IP address,
+request headers, a user account, or process-global state, and it does not
+persist them. This keeps session semantics owned by the application instead of
+silently treating a server process as one installation.
+
+Create a dedicated Pulsepond source for server traffic with
+`origin_mode: "forbidden"`. Use `"optional"` only when a source intentionally
+accepts both browser and non-browser clients. The server client does not forge
+an `Origin` header, and a source with `origin_mode: "required"` will reject
+normal server requests.
+
+Call `shutdown()` from the application's graceful-shutdown path. It makes one
+final bounded delivery attempt and permanently closes the client. In short-lived
+serverless handlers, explicitly await `flush()` or attach it to the platform's
+background-lifetime primitive, such as Cloudflare Workers `ctx.waitUntil()`.
+
+## Browser identity persistence
+
+The browser client defaults to memory-only identity. No Cookie, local storage,
+or session storage is read or written:
 
 ```ts
 createPulsepond({
@@ -97,7 +144,7 @@ fields when `track()` is called:
 - lowercase RFC UUIDv7 `event_id`
 - `schema_version: 1`
 - UTC `occurred_at`
-- `platform: "web"`
+- `platform: "web"` for the browser client or `"server"` for the server client
 - configured application and environment fields
 - random installation and session IDs
 - a defensive, frozen copy of the explicit properties
@@ -114,8 +161,9 @@ heuristics. Those policies remain authoritative at ingestion.
 - Requests go only to the configured `/v1/batch` URL.
 - The only request headers set by the SDK are `Authorization` and
   `Content-Type`.
-- Fetch uses `credentials: "omit"`, `referrerPolicy: "no-referrer"`,
-  `redirect: "error"`, and `cache: "no-store"`.
+- Browser Fetch uses `credentials: "omit"`, `referrerPolicy: "no-referrer"`,
+  `redirect: "error"`, and `cache: "no-store"`. Server Fetch omits the
+  browser-only options.
 - Batches are bounded by event count and 60,000 serialized UTF-8 bytes.
 - `202 Accepted` is success. It means the Worker accepted the batch into its
   Queue; it does not promise that D1 already contains the events.
@@ -125,8 +173,8 @@ heuristics. Those policies remain authoritative at ingestion.
   single-event `413` is terminal.
 - Unsent events older than 23 hours are dropped before batching by default so
   one stale event cannot poison a whole server-validated batch.
-- `pagehide` triggers one best-effort keepalive fetch. `sendBeacon` is not used
-  because it cannot attach the publishable Bearer credential.
+- Browser `pagehide` triggers one best-effort keepalive fetch. `sendBeacon` is
+  not used because it cannot attach the publishable Bearer credential.
 
 Delivery is asynchronous and best-effort. Events can be dropped by explicit
 queue, age, retry, or lifecycle bounds, and ambiguous network failures can
@@ -145,9 +193,12 @@ The SDK collects nothing automatically. It does not read or send:
 - User-Agent or device metadata as event properties
 
 The write key is a publishable, source-scoped credential. Browser code cannot
-keep it secret. It grants event submission only; it never grants reads or
-administrative access. Exact Origin policy, event/property allowlists, rate
-limits, rotation, and revocation are required server-side controls.
+keep it secret. Server applications should still inject it through their
+normal secret manager and must never send it to a browser, log, URL, event
+property, or error report. It grants event submission only; it never grants
+reads or administrative access. Exact Origin policy, event/property
+allowlists, rate limits, rotation, and revocation are required server-side
+controls.
 
 The browser still adds normal networking metadata such as `Origin`,
 `User-Agent`, and Fetch Metadata headers to the HTTP request. The collector
@@ -182,13 +233,21 @@ const pulsepond = createPulsepond({
 | `environment` | required | ASCII slug, up to 32 characters |
 | `appVersion` | omitted | Trimmed printable ASCII, up to 64 characters |
 | `release` | omitted | Trimmed printable ASCII, up to 128 characters |
-| `persistence` | `"memory"` | Set to `"localStorage"` only after the application makes that privacy choice |
-| `storageNamespace` | omitted | Required with persistent identity |
 | `batchSize` | `20` | Between 1 and the protocol maximum of 100 |
 | `flushIntervalMs` | `5000` | `0` disables timed flushes |
 | `maxQueueSize` | `1000` | In-memory event-count bound |
 | `eventTtlMs` | 23 hours | Align this with the source's server-side maximum event age |
 | `onDiagnostic` | omitted | Receives redacted lifecycle and delivery status |
+
+Browser clients also accept:
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `persistence` | `"memory"` | Set to `"localStorage"` only after the application makes that privacy choice |
+| `storageNamespace` | omitted | Required with persistent identity |
+
+Server clients reject both browser identity-storage options and require a
+`PulsepondServerEventContext` argument on every `track()` call.
 
 ## Development
 

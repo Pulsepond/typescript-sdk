@@ -20,7 +20,7 @@ export interface EventV1 {
   readonly event_id: string;
   readonly event_name: string;
   readonly occurred_at: string;
-  readonly platform: "web";
+  readonly platform: "server" | "web";
   readonly properties: Readonly<Record<string, EventPropertyValue>>;
   readonly release?: string;
   readonly schema_version: 1;
@@ -34,6 +34,7 @@ interface CreateEventInput {
   readonly eventId: string;
   readonly eventName: string;
   readonly occurredAt: string;
+  readonly platform: "server" | "web";
   readonly properties?: EventProperties;
   readonly release?: string;
   readonly byteLength: (value: string) => number;
@@ -53,7 +54,7 @@ export function createEvent(input: CreateEventInput): EventV1 {
     event_id: input.eventId,
     event_name: input.eventName,
     occurred_at: input.occurredAt,
-    platform: "web",
+    platform: input.platform,
     properties,
     schema_version: EVENT_SCHEMA_VERSION,
     session_id: input.sessionId,

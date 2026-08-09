@@ -15,8 +15,10 @@ Every behavior change should include a test. Delivery changes should cover
 retry classification, stable event identity, bounded memory, browser lifecycle
 behavior, and redacted diagnostics where relevant.
 
-Keep version `0.1` browser-only. React bindings, a Node transport, automatic
-capture, and a generic plugin system belong in separately justified work.
+Keep the browser and server transports on the same protocol, queue, delivery,
+and diagnostics implementation. Browser-only identity and lifecycle behavior
+must not leak into server requests. React bindings, automatic capture, and a
+generic plugin system belong in separately justified work.
 
 ## Privacy and security
 

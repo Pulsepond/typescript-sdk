@@ -32,9 +32,43 @@ export interface PulsepondRuntime {
 }
 
 export function createBrowserRuntime(): PulsepondRuntime {
+  const runtime = createStandardRuntime();
+  return {
+    ...runtime,
+    getLocalStorage: () => readStorage("localStorage"),
+    getSessionStorage: () => readStorage("sessionStorage"),
+    addPageHideListener: (callback) => {
+      if (
+        typeof globalThis.addEventListener !== "function" ||
+        typeof globalThis.removeEventListener !== "function"
+      ) {
+        return undefined;
+      }
+      globalThis.addEventListener("pagehide", callback);
+      return () => {
+        globalThis.removeEventListener("pagehide", callback);
+      };
+    },
+  };
+}
+
+export function createServerRuntime(): PulsepondRuntime {
+  const runtime = createStandardRuntime();
+  return {
+    ...runtime,
+    getLocalStorage: () => undefined,
+    getSessionStorage: () => undefined,
+    addPageHideListener: () => undefined,
+  };
+}
+
+function createStandardRuntime(): Omit<
+  PulsepondRuntime,
+  "addPageHideListener" | "getLocalStorage" | "getSessionStorage"
+> {
   if (typeof globalThis.fetch !== "function") {
     throw new PulsepondConfigurationError(
-      "Pulsepond requires the browser Fetch API",
+      "Pulsepond requires the Fetch API",
     );
   }
   if (
@@ -42,17 +76,17 @@ export function createBrowserRuntime(): PulsepondRuntime {
     typeof globalThis.crypto.getRandomValues !== "function"
   ) {
     throw new PulsepondConfigurationError(
-      "Pulsepond requires the browser Web Crypto API",
+      "Pulsepond requires the Web Crypto API",
     );
   }
   if (typeof globalThis.TextEncoder !== "function") {
     throw new PulsepondConfigurationError(
-      "Pulsepond requires the browser TextEncoder API",
+      "Pulsepond requires the TextEncoder API",
     );
   }
   if (typeof globalThis.AbortController !== "function") {
     throw new PulsepondConfigurationError(
-      "Pulsepond requires the browser AbortController API",
+      "Pulsepond requires the AbortController API",
     );
   }
 
@@ -72,20 +106,6 @@ export function createBrowserRuntime(): PulsepondRuntime {
       globalThis.setTimeout(callback, milliseconds),
     clearTimeout: (handle) => {
       globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>);
-    },
-    getLocalStorage: () => readStorage("localStorage"),
-    getSessionStorage: () => readStorage("sessionStorage"),
-    addPageHideListener: (callback) => {
-      if (
-        typeof globalThis.addEventListener !== "function" ||
-        typeof globalThis.removeEventListener !== "function"
-      ) {
-        return undefined;
-      }
-      globalThis.addEventListener("pagehide", callback);
-      return () => {
-        globalThis.removeEventListener("pagehide", callback);
-      };
     },
   };
 }

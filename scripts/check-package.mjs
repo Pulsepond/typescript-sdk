@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 
 const temporaryDirectory = await mkdtemp(join(tmpdir(), "pulsepond-package-"));
@@ -31,6 +32,14 @@ try {
   assert.equal(files.includes("package/LICENSE"), true);
   assert.equal(files.includes("package/README.md"), true);
   assert.equal(files.includes("package/package.json"), true);
+
+  await run("tar", ["-xzf", archivePath, "-C", temporaryDirectory]);
+  const publishedModule = await import(
+    pathToFileURL(join(temporaryDirectory, "package", "dist", "index.js"))
+      .href
+  );
+  assert.equal(typeof publishedModule.createPulsepond, "function");
+  assert.equal(typeof publishedModule.createPulsepondServer, "function");
 
   assert.equal(packageJson.name, "@pulsepond/typescript-sdk");
   assert.equal(packageJson.publishConfig.access, "public");

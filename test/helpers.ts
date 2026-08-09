@@ -3,7 +3,10 @@ import type {
   RuntimeResponse,
   StorageLike,
 } from "../src/runtime.js";
-import type { PulsepondConfig } from "../src/types.js";
+import type {
+  PulsepondConfig,
+  PulsepondServerConfig,
+} from "../src/types.js";
 
 export const WRITE_KEY =
   `ppw_v1_${"a".repeat(32)}_${"b".repeat(64)}`;
@@ -11,6 +14,18 @@ export const WRITE_KEY =
 export function config(
   overrides: Partial<PulsepondConfig> = {},
 ): PulsepondConfig {
+  return {
+    endpoint: "http://localhost:8787/v1/batch",
+    environment: "test",
+    flushIntervalMs: 0,
+    writeKey: WRITE_KEY,
+    ...overrides,
+  };
+}
+
+export function serverConfig(
+  overrides: Partial<PulsepondServerConfig> = {},
+): PulsepondServerConfig {
   return {
     endpoint: "http://localhost:8787/v1/batch",
     environment: "test",

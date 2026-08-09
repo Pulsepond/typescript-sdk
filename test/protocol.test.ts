@@ -14,6 +14,7 @@ const baseEvent = {
   eventId: "01890f3e-e4b8-7cc3-98c8-7f0d7b4c9a11",
   eventName: "view_work",
   occurredAt: "2023-07-01T00:00:00.000Z",
+  platform: "web",
   sessionId: "01890f3e-e4b8-7cc3-98c8-7f0d7b4c9a12",
 } as const;
 
