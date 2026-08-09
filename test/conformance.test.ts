@@ -4,11 +4,15 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { Ajv2020 } from "ajv/dist/2020.js";
-import { createPulsepondWithRuntime } from "../src/client.js";
+import {
+  createPulsepondServerWithRuntime,
+  createPulsepondWithRuntime,
+} from "../src/client.js";
 import {
   config,
   FakeRuntime,
   requestBody,
+  serverConfig,
 } from "./helpers.js";
 
 const fixtureRoot = join(
@@ -56,6 +60,31 @@ describe("Pulsepond v1 conformance", () => {
       position: 3,
       work_id: "work_123",
     });
+
+    await client.flush();
+
+    assert.equal(
+      validateBatch(requestBody(runtime.requests[0]!)),
+      true,
+      JSON.stringify(validateSchema.errors),
+    );
+  });
+
+  it("produces a server batch accepted by the canonical schema and semantics", async () => {
+    const runtime = new FakeRuntime();
+    const client = createPulsepondServerWithRuntime(
+      serverConfig(),
+      runtime,
+    );
+    client.track(
+      "purchase_success",
+      {
+        anonymousInstallationId:
+          "11111111-1111-4111-8111-111111111111",
+        sessionId: "0194f677-6a3d-7c19-8b21-cf30a213c010",
+      },
+      { currency: "JPY", value: 1200 },
+    );
 
     await client.flush();
 

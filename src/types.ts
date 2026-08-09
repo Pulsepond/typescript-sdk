@@ -19,7 +19,7 @@ export interface PulsepondDiagnostic {
   readonly status?: number;
 }
 
-export interface PulsepondConfig {
+interface PulsepondSharedConfig {
   /**
    * Exact absolute ingestion URL ending in `/v1/batch`.
    */
@@ -31,14 +31,6 @@ export interface PulsepondConfig {
   readonly environment: string;
   readonly appVersion?: string;
   readonly release?: string;
-  /**
-   * Identity storage is memory-only unless this is explicitly enabled.
-   */
-  readonly persistence?: IdentityPersistence;
-  /**
-   * Required with localStorage persistence so key rotation does not change identity.
-   */
-  readonly storageNamespace?: string;
   /**
    * Maximum events sent in one request. Defaults to the server bootstrap value of 20.
    */
@@ -61,6 +53,30 @@ export interface PulsepondConfig {
   readonly onDiagnostic?: (diagnostic: PulsepondDiagnostic) => void;
 }
 
+export interface PulsepondConfig extends PulsepondSharedConfig {
+  /**
+   * Identity storage is memory-only unless this is explicitly enabled.
+   */
+  readonly persistence?: IdentityPersistence;
+  /**
+   * Required with localStorage persistence so key rotation does not change identity.
+   */
+  readonly storageNamespace?: string;
+}
+
+export interface PulsepondServerConfig extends PulsepondSharedConfig {}
+
+export interface PulsepondServerEventContext {
+  /**
+   * Application-owned canonical UUIDv4 or UUIDv7. The SDK does not persist it.
+   */
+  readonly anonymousInstallationId: string;
+  /**
+   * Application-owned canonical UUIDv4 or UUIDv7. The SDK does not persist it.
+   */
+  readonly sessionId: string;
+}
+
 export interface PulsepondClient {
   /**
    * Enqueues an explicit event and returns its UUIDv7, or null when the bounded queue is full.
@@ -76,6 +92,26 @@ export interface PulsepondClient {
   reset(): void;
   /**
    * Removes lifecycle listeners and makes one final best-effort flush.
+   */
+  shutdown(): Promise<void>;
+}
+
+export interface PulsepondServerClient {
+  /**
+   * Enqueues an explicit event with caller-owned identifiers and returns its UUIDv7,
+   * or null when the bounded queue is full.
+   */
+  track(
+    eventName: string,
+    context: PulsepondServerEventContext,
+    properties?: EventProperties,
+  ): string | null;
+  /**
+   * Attempts to deliver queued events. Retryable failures remain queued for bounded retry.
+   */
+  flush(): Promise<void>;
+  /**
+   * Makes one final bounded delivery attempt and permanently closes the client.
    */
   shutdown(): Promise<void>;
 }

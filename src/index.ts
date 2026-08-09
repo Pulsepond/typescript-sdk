@@ -2,7 +2,7 @@ export {
   PulsepondConfigurationError,
   PulsepondValidationError,
 } from "./errors.js";
-export { createPulsepond } from "./client.js";
+export { createPulsepond, createPulsepondServer } from "./client.js";
 export type {
   EventProperties,
   EventPropertyValue,
@@ -11,4 +11,7 @@ export type {
   PulsepondConfig,
   PulsepondDiagnostic,
   PulsepondDiagnosticCode,
+  PulsepondServerClient,
+  PulsepondServerConfig,
+  PulsepondServerEventContext,
 } from "./types.js";

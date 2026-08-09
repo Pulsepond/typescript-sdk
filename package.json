@@ -1,14 +1,16 @@
 {
   "name": "@pulsepond/typescript-sdk",
-  "version": "0.1.1",
-  "description": "Privacy-conscious browser TypeScript SDK for Pulsepond",
+  "version": "0.2.0",
+  "description": "Privacy-conscious browser and server TypeScript SDK for Pulsepond",
   "license": "Apache-2.0",
   "keywords": [
     "analytics",
     "browser",
     "cloudflare",
     "events",
+    "node",
     "pulsepond",
+    "server",
     "typescript"
   ],
   "homepage": "https://pulsepond.dev",
