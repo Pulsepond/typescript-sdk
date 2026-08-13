@@ -1,4 +1,4 @@
-name: Publish
+name: Publish React
 
 on:
   release:
@@ -10,13 +10,12 @@ permissions:
   id-token: write
 
 concurrency:
-  group: npm-publish
-  queue: max
+  group: npm-publish-react
   cancel-in-progress: false
 
 jobs:
   publish:
-    if: ${{ !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'v') }}
+    if: ${{ !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'react-v') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -39,12 +38,18 @@ jobs:
           git fetch --no-tags origin main
           git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD
       - name: Verify release tag
-        run: node scripts/check-release.mjs
+        run: node packages/react/scripts/check-release.mjs
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Validate
         run: pnpm check
+      - name: Pack publishable workspace package
+        id: package
+        run: |
+          version="$(node -p "require('./packages/react/package.json').version")"
+          pnpm --dir packages/react pack --pack-destination "$RUNNER_TEMP"
+          echo "archive=$RUNNER_TEMP/pulsepond-react-$version.tgz" >> "$GITHUB_OUTPUT"
       - name: Publish to npm
-        run: npm publish --access public --provenance
+        run: npm publish "${{ steps.package.outputs.archive }}" --access public --provenance

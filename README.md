@@ -4,9 +4,9 @@
 from browsers, modern Node.js applications, and Cloudflare Workers to a
 self-hosted Pulsepond Worker.
 
-Version `0.2` is ESM-only. It does not include React bindings, automatic
-capture, or user identity APIs. React applications can use the separate
-`@pulsepond/react-sdk` binding.
+Version `0.2` is ESM-only. It does not include automatic capture or user
+identity APIs. The same repository also owns the thin `@pulsepond/react`
+binding so React does not grow a second transport or event contract.
 
 ## Install
 
@@ -16,6 +16,37 @@ pnpm add @pulsepond/typescript-sdk
 
 For local unreleased changes, install the packed tarball produced by
 `pnpm pack`.
+
+## React binding
+
+React applications install the core SDK and its optional binding:
+
+```sh
+pnpm add @pulsepond/typescript-sdk @pulsepond/react
+```
+
+```tsx
+import { createPulsepond } from "@pulsepond/typescript-sdk";
+import { PulsepondProvider, usePulsepond } from "@pulsepond/react";
+
+const pulsepond = createPulsepond({
+  endpoint: "https://events.example.com/v1/batch",
+  writeKey: "ppw_v1_...",
+  environment: "production",
+});
+
+root.render(
+  <PulsepondProvider client={pulsepond}>
+    <App />
+  </PulsepondProvider>,
+);
+```
+
+`PulsepondProvider` stores the application-owned client in React context and
+`usePulsepond()` returns it. The binding never creates a client or tracks
+routes, renders, clicks, URLs, or component data automatically. See
+[`packages/react`](packages/react) for its complete lifecycle and React Server
+Component guidance.
 
 ## Browser client
 
@@ -263,8 +294,8 @@ pnpm check
 ```
 
 `pnpm check` runs strict TypeScript checking, unit tests, the pinned Pulsepond
-v1 schema and fixture suite, a production build, a real browser CORS/lifecycle
-test, and an inspection of the npm tarball.
+v1 schema and fixture suite, production builds for the core and React packages,
+a real browser CORS/lifecycle test, and inspections of both npm tarballs.
 
 The browser test finds common Linux Chrome paths. Set
 `PULSEPOND_CHROME_PATH=/absolute/path/to/chrome` when needed.
@@ -272,9 +303,10 @@ The browser test finds common Linux Chrome paths. Set
 ## Release
 
 Pull requests and pushes to `main` run the complete `pnpm check` quality gate.
-Stable GitHub Releases publish the matching package version through npm
-Trusted Publishing. The release tag must be `v<package.json version>` and its
-commit must be part of `main`.
+Stable GitHub Releases publish the matching package through npm Trusted
+Publishing. Core tags use `v<package.json version>`; React tags use
+`react-v<packages/react/package.json version>`. Release commits must be part of
+`main`.
 
 The publish workflow reruns the complete quality gate and uses short-lived
 OIDC credentials with npm provenance. It ignores GitHub prereleases so they
