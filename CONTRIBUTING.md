@@ -17,8 +17,9 @@ behavior, and redacted diagnostics where relevant.
 
 Keep the browser and server transports on the same protocol, queue, delivery,
 and diagnostics implementation. Browser-only identity and lifecycle behavior
-must not leak into server requests. React bindings, automatic capture, and a
-generic plugin system belong in separately justified work.
+must not leak into server requests. React bindings stay thin and live in
+`packages/react`; automatic capture and a generic plugin system require
+separate justification.
 
 ## Privacy and security
 
@@ -42,15 +43,18 @@ pull-request workflow.
 
 ## Release
 
-This repository uses an intentionally small release flow for one package:
+This repository uses one quality gate and separate release tags for two npm
+packages:
 
-1. Update the version in `package.json` in a pull request.
+1. Update the relevant version in `package.json` or
+   `packages/react/package.json` in a pull request.
 2. Run `pnpm check`, push the branch, and wait for CI to pass.
 3. Merge the pull request into `main`.
-4. Create a stable GitHub Release from the merged commit with tag
-   `v<package.json version>`.
-5. Confirm that the `Publish` workflow succeeds and that npm exposes the new
-   version with provenance.
+4. Create a stable GitHub Release from the merged commit. Use
+   `v<package.json version>` for `@pulsepond/typescript-sdk` or
+   `react-v<packages/react/package.json version>` for `@pulsepond/react`.
+5. Confirm that the matching publish workflow succeeds and that npm exposes
+   the new version with provenance.
 
 The release workflow verifies that the tag matches `package.json`, that the
 tagged commit belongs to `main`, and that the full quality gate passes before

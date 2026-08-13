@@ -1,22 +1,20 @@
 {
-  "name": "@pulsepond/typescript-sdk",
-  "version": "0.2.0",
-  "description": "Privacy-conscious browser and server TypeScript SDK for Pulsepond",
+  "name": "@pulsepond/react",
+  "version": "0.1.0",
+  "description": "Explicit, privacy-conscious React bindings for Pulsepond",
   "license": "Apache-2.0",
   "keywords": [
     "analytics",
-    "browser",
     "cloudflare",
     "events",
-    "node",
     "pulsepond",
-    "server",
-    "typescript"
+    "react"
   ],
   "homepage": "https://pulsepond.dev",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Pulsepond/typescript-sdk.git"
+    "url": "git+https://github.com/Pulsepond/typescript-sdk.git",
+    "directory": "packages/react"
   },
   "bugs": {
     "url": "https://github.com/Pulsepond/typescript-sdk/issues"
@@ -41,21 +39,27 @@
     "access": "public",
     "provenance": true
   },
-  "packageManager": "pnpm@10.34.5",
   "scripts": {
-    "build": "node scripts/clean.mjs && tsc -p tsconfig.build.json",
-    "check": "pnpm run check:core && pnpm --dir packages/react check",
-    "check:core": "npm run typecheck && npm test && npm run build && npm run test:browser && npm run check:package",
+    "build": "node scripts/clean.mjs && tsc -p tsconfig.build.json && node scripts/copy-license.mjs",
+    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm check:package",
     "check:package": "node scripts/check-package.mjs",
+    "prepack": "node scripts/copy-license.mjs",
     "test": "node --import tsx --test test/*.test.ts",
-    "test:browser": "node --import tsx --test test/browser.e2e.ts",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pulsepond/typescript-sdk": "workspace:^"
+  },
+  "peerDependencies": {
+    "react": ">=18.3.0 <20"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
-    "ajv": "8.20.0",
-    "playwright-core": "1.61.1",
-    "tsx": "4.23.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "tsx": "4.23.11",
     "typescript": "7.0.2"
   }
 }
