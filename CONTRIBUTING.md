@@ -63,3 +63,22 @@ Publisher. Never add an npm token to GitHub.
 
 GitHub prereleases and prerelease version strings are deliberately rejected
 because this project does not yet define an npm prerelease dist-tag policy.
+
+### Bootstrap the React package
+
+npm requires a package to exist before it can be assigned a Trusted Publisher.
+For the first `@pulsepond/react` version only, a maintainer must:
+
+1. Run `pnpm check` on the exact `main` commit.
+2. Pack `packages/react` with pnpm so `workspace:^` becomes a registry version.
+3. Publish that tarball interactively with npm account 2FA, using public access
+   and explicitly disabling provenance because the command is not running in
+   GitHub Actions.
+4. Configure the package's GitHub Actions Trusted Publisher for organization
+   `Pulsepond`, repository `typescript-sdk`, workflow `publish-react.yml`, and
+   the `npm publish` action.
+
+Do not create a stable GitHub Release for that manually published version: it
+would ask the automated workflow to publish the same immutable version again.
+All later React versions use the normal `react-v<version>` release flow and
+OIDC provenance.

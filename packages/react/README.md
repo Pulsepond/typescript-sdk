@@ -109,7 +109,10 @@ The shared quality gate checks both the core TypeScript SDK and React binding.
 Stable GitHub Releases tagged `react-v<package version>` publish through npm
 Trusted Publishing. The release commit must belong to `main`; the workflow
 reruns the complete repository quality gate and uses short-lived OIDC
-credentials with provenance.
+credentials with provenance. Because npm only allows a Trusted Publisher to be
+configured for an existing package, maintainers must follow the one-time
+bootstrap procedure in the repository's
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md) before the first automated release.
 
 ## License
 
