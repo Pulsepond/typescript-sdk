@@ -448,7 +448,7 @@ describe("browser client", () => {
     assert.equal(runtime.sessionStorage.values.size, 2);
   });
 
-  it("does not carry session-scoped identity into a new browser tab", async () => {
+  it("does not carry session-scoped identity into fresh storage", async () => {
     const firstRuntime = new FakeRuntime();
     const first = createPulsepondWithRuntime(
       config({

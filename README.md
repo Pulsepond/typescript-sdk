@@ -148,7 +148,8 @@ createPulsepond({
 ```
 
 Random IDs that survive navigation require an explicit application-owned namespace. Use
-`sessionStorage` when the installation identity should disappear with the browser tab:
+`sessionStorage` when the installation identity should follow the browser's session-storage
+lifetime instead of surviving future browser sessions:
 
 ```ts
 createPulsepond({
@@ -173,10 +174,12 @@ createPulsepond({
 });
 ```
 
-With `sessionStorage`, both random IDs remain inside the current tab. With `localStorage`, the
-installation ID is stored in `localStorage` while the session ID remains in `sessionStorage` and
-rotates after 30 minutes of inactivity. Pending event payloads are never persisted. The namespace,
-rather than the write key, keeps the installation ID stable across key rotation.
+With `sessionStorage`, both random IDs follow the current top-level browsing context. Browsers may
+copy the initial values into a duplicated tab or a new tab opened with an opener; each copy then has
+its own session-storage lifetime. With `localStorage`, the installation ID is stored in
+`localStorage` while the session ID remains in `sessionStorage` and rotates after 30 minutes of
+inactivity. Pending event payloads are never persisted. The namespace, rather than the write key,
+keeps the installation ID stable across key rotation.
 
 Storage access may fail in restricted browser modes. The SDK then falls back
 to memory and emits a redacted `storage_unavailable` diagnostic.
@@ -288,7 +291,7 @@ Browser clients also accept:
 
 | Option | Default | Notes |
 | --- | --- | --- |
-| `persistence` | `"memory"` | `"sessionStorage"` survives navigation in one tab; `"localStorage"` also survives browser sessions |
+| `persistence` | `"memory"` | `"sessionStorage"` follows the browsing-context lifetime; `"localStorage"` also survives browser sessions |
 | `storageNamespace` | omitted | Required with either browser-storage mode |
 
 Server clients reject both browser identity-storage options and require a
