@@ -746,17 +746,18 @@ function resolveConfig(
   } else {
     if (
       persistence !== "memory" &&
+      persistence !== "sessionStorage" &&
       persistence !== "localStorage"
     ) {
       throw new PulsepondConfigurationError(
-        "persistence must be memory or localStorage",
+        "persistence must be memory, sessionStorage, or localStorage",
       );
     }
-    if (persistence === "localStorage") {
+    if (persistence !== "memory") {
       const storageNamespace = browserConfig.storageNamespace;
       if (storageNamespace === undefined) {
         throw new PulsepondConfigurationError(
-          "storageNamespace is required with localStorage persistence",
+          "storageNamespace is required with browser storage",
         );
       }
       validateConfigurationField(() => {
