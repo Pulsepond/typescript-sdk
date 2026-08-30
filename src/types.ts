@@ -2,7 +2,7 @@ export type EventPropertyValue = null | boolean | number | string;
 
 export type EventProperties = Readonly<Record<string, EventPropertyValue>>;
 
-export type IdentityPersistence = "memory" | "localStorage";
+export type IdentityPersistence = "memory" | "sessionStorage" | "localStorage";
 
 export type PulsepondDiagnosticCode =
   | "batch_rejected"
@@ -59,7 +59,7 @@ export interface PulsepondConfig extends PulsepondSharedConfig {
    */
   readonly persistence?: IdentityPersistence;
   /**
-   * Required with localStorage persistence so key rotation does not change identity.
+   * Required with browser storage so key rotation does not change identity.
    */
   readonly storageNamespace?: string;
 }

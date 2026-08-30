@@ -25,7 +25,8 @@ export class IdentityManager {
   readonly #sessionKey: string;
   readonly #runtime: PulsepondRuntime;
   readonly #notify: (diagnostic: PulsepondDiagnostic) => void;
-  #localStorage: StorageLike | undefined;
+  #installationStorage: StorageLike | undefined;
+  #installationStorageKind: "local" | "session" = "local";
   #sessionStorage: StorageLike | undefined;
   #installationId: string;
   #session: SessionRecord;
@@ -44,11 +45,18 @@ export class IdentityManager {
     this.#sessionKey = `pulsepond.v1.${namespace}.session`;
 
     if (persistence === "localStorage") {
-      this.#localStorage = runtime.getLocalStorage();
+      this.#installationStorage = runtime.getLocalStorage();
       this.#sessionStorage = runtime.getSessionStorage();
-      if (this.#localStorage === undefined) {
+      if (this.#installationStorage === undefined) {
         this.#storageUnavailable();
       }
+      if (this.#sessionStorage === undefined) {
+        this.#storageUnavailable();
+      }
+    } else if (persistence === "sessionStorage") {
+      this.#installationStorageKind = "session";
+      this.#sessionStorage = runtime.getSessionStorage();
+      this.#installationStorage = this.#sessionStorage;
       if (this.#sessionStorage === undefined) {
         this.#storageUnavailable();
       }
@@ -88,7 +96,11 @@ export class IdentityManager {
   }
 
   reset(now: number): void {
-    this.#remove(this.#localStorage, this.#installationKey, "local");
+    this.#remove(
+      this.#installationStorage,
+      this.#installationKey,
+      this.#installationStorageKind,
+    );
     this.#remove(this.#sessionStorage, this.#sessionKey, "session");
     this.#installationId = this.#newId(now);
     this.#session = {
@@ -105,9 +117,9 @@ export class IdentityManager {
 
   #readInstallationId(): string | undefined {
     const value = this.#read(
-      this.#localStorage,
+      this.#installationStorage,
       this.#installationKey,
-      "local",
+      this.#installationStorageKind,
     );
     return value !== undefined && isCanonicalAnonymousId(value)
       ? value
@@ -148,10 +160,10 @@ export class IdentityManager {
 
   #persistInstallation(): void {
     this.#write(
-      this.#localStorage,
+      this.#installationStorage,
       this.#installationKey,
       this.#installationId,
-      "local",
+      this.#installationStorageKind,
     );
   }
 
@@ -212,9 +224,10 @@ export class IdentityManager {
   }
 
   #disableStorage(kind: "local" | "session"): void {
-    if (kind === "local") {
-      this.#localStorage = undefined;
-    } else {
+    if (kind === this.#installationStorageKind) {
+      this.#installationStorage = undefined;
+    }
+    if (kind === "session") {
       this.#sessionStorage = undefined;
     }
     this.#storageUnavailable();

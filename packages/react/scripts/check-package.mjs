@@ -8,6 +8,9 @@ const temporaryDirectory = await mkdtemp(
   join(tmpdir(), "pulsepond-react-package-"),
 );
 const packageJson = JSON.parse(await readFile("package.json", "utf8"));
+const corePackageJson = JSON.parse(
+  await readFile("../../package.json", "utf8"),
+);
 
 try {
   await run("pnpm", [
@@ -59,7 +62,7 @@ try {
   );
   assert.equal(
     packedPackageJson.dependencies["@pulsepond/typescript-sdk"],
-    "^0.2.0",
+    `^${corePackageJson.version}`,
     "the published package must contain a registry-compatible core dependency",
   );
 } finally {

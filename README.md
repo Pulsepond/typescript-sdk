@@ -147,7 +147,21 @@ createPulsepond({
 });
 ```
 
-Persistent random IDs require an explicit application-owned namespace:
+Random IDs that survive navigation require an explicit application-owned namespace. Use
+`sessionStorage` when the installation identity should disappear with the browser tab:
+
+```ts
+createPulsepond({
+  endpoint: "https://events.example.com/v1/batch",
+  writeKey: "ppw_v1_...",
+  environment: "production",
+  persistence: "sessionStorage",
+  storageNamespace: "installer_flow",
+});
+```
+
+Use `localStorage` only when the application has made an explicit decision to keep the random
+installation identity across browser sessions:
 
 ```ts
 createPulsepond({
@@ -159,10 +173,10 @@ createPulsepond({
 });
 ```
 
-The installation ID is stored in `localStorage`; the session ID is stored in
-`sessionStorage` and rotates after 30 minutes of inactivity. Pending event
-payloads are never persisted. The namespace, rather than the write key, keeps
-the installation ID stable across key rotation.
+With `sessionStorage`, both random IDs remain inside the current tab. With `localStorage`, the
+installation ID is stored in `localStorage` while the session ID remains in `sessionStorage` and
+rotates after 30 minutes of inactivity. Pending event payloads are never persisted. The namespace,
+rather than the write key, keeps the installation ID stable across key rotation.
 
 Storage access may fail in restricted browser modes. The SDK then falls back
 to memory and emits a redacted `storage_unavailable` diagnostic.
@@ -274,8 +288,8 @@ Browser clients also accept:
 
 | Option | Default | Notes |
 | --- | --- | --- |
-| `persistence` | `"memory"` | Set to `"localStorage"` only after the application makes that privacy choice |
-| `storageNamespace` | omitted | Required with persistent identity |
+| `persistence` | `"memory"` | `"sessionStorage"` survives navigation in one tab; `"localStorage"` also survives browser sessions |
+| `storageNamespace` | omitted | Required with either browser-storage mode |
 
 Server clients reject both browser identity-storage options and require a
 `PulsepondServerEventContext` argument on every `track()` call.

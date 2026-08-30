@@ -413,6 +413,73 @@ describe("browser client", () => {
     );
   });
 
+  it("keeps session-scoped identity across navigation without touching local storage", async () => {
+    const runtime = new FakeRuntime();
+    const first = createPulsepondWithRuntime(
+      config({
+        persistence: "sessionStorage",
+        storageNamespace: "pulsepond_installer",
+      }),
+      runtime,
+    );
+    first.track("install_start");
+    await first.flush();
+
+    const second = createPulsepondWithRuntime(
+      config({
+        persistence: "sessionStorage",
+        storageNamespace: "pulsepond_installer",
+      }),
+      runtime,
+    );
+    second.track("oauth_complete");
+    await second.flush();
+
+    const firstInstallationId =
+      requestBody(runtime.requests[0]!).events[0]
+        ?.anonymous_installation_id;
+    const secondInstallationId =
+      requestBody(runtime.requests[1]!).events[0]
+        ?.anonymous_installation_id;
+    assert.equal(secondInstallationId, firstInstallationId);
+    assert.equal(runtime.localStorageReads, 0);
+    assert.equal(runtime.localStorage.values.size, 0);
+    assert.equal(runtime.sessionStorageReads, 2);
+    assert.equal(runtime.sessionStorage.values.size, 2);
+  });
+
+  it("does not carry session-scoped identity into a new browser tab", async () => {
+    const firstRuntime = new FakeRuntime();
+    const first = createPulsepondWithRuntime(
+      config({
+        persistence: "sessionStorage",
+        storageNamespace: "pulsepond_installer",
+      }),
+      firstRuntime,
+    );
+    first.track("install_start");
+    await first.flush();
+
+    const secondRuntime = new FakeRuntime();
+    secondRuntime.nowMs += 1;
+    const second = createPulsepondWithRuntime(
+      config({
+        persistence: "sessionStorage",
+        storageNamespace: "pulsepond_installer",
+      }),
+      secondRuntime,
+    );
+    second.track("install_start");
+    await second.flush();
+
+    assert.notEqual(
+      requestBody(secondRuntime.requests[0]!).events[0]
+        ?.anonymous_installation_id,
+      requestBody(firstRuntime.requests[0]!).events[0]
+        ?.anonymous_installation_id,
+    );
+  });
+
   it("never touches browser storage in the default memory mode", () => {
     const runtime = new FakeRuntime();
     const client = createPulsepondWithRuntime(config(), runtime);
@@ -648,14 +715,16 @@ describe("configuration", () => {
     );
   });
 
-  it("requires a caller namespace before enabling persistent identity", () => {
-    assert.throws(
-      () =>
-        createPulsepondWithRuntime(
-          config({ persistence: "localStorage" }),
-          new FakeRuntime(),
-        ),
-      PulsepondConfigurationError,
-    );
+  it("requires a caller namespace before enabling browser storage", () => {
+    for (const persistence of ["localStorage", "sessionStorage"] as const) {
+      assert.throws(
+        () =>
+          createPulsepondWithRuntime(
+            config({ persistence }),
+            new FakeRuntime(),
+          ),
+        PulsepondConfigurationError,
+      );
+    }
   });
 });
