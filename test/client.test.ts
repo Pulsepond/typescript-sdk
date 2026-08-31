@@ -7,7 +7,10 @@ import {
   PulsepondConfigurationError,
   PulsepondValidationError,
 } from "../src/errors.js";
-import type { PulsepondDiagnostic } from "../src/types.js";
+import type {
+  PulsepondBrowserClient,
+  PulsepondDiagnostic,
+} from "../src/types.js";
 import {
   config,
   deferred,
@@ -513,6 +516,84 @@ describe("browser client", () => {
       secondBody.events[0]?.anonymous_installation_id,
     );
     assert.equal(secondBody.events[0]?.event_name, "after_reset");
+  });
+
+  it("opt-out discards queued events and clears every stored identifier", async () => {
+    for (const persistence of ["localStorage", "sessionStorage"] as const) {
+      const runtime = new FakeRuntime();
+      const client = createPulsepondWithRuntime(
+        config({
+          flushIntervalMs: 5_000,
+          persistence,
+          storageNamespace: "consent_flow",
+        }),
+        runtime,
+      );
+      client.track("before_opt_out");
+
+      client.optOut();
+      client.optOut();
+      await client.flush();
+
+      assert.equal(runtime.requests.length, 0);
+      assert.equal(runtime.timers.size, 0);
+      assert.equal(runtime.pageHideListener, undefined);
+      assert.equal(runtime.localStorage.values.size, 0);
+      assert.equal(runtime.sessionStorage.values.size, 0);
+      assert.throws(
+        () => client.track("after_opt_out"),
+        PulsepondValidationError,
+      );
+    }
+  });
+
+  it("opt-out invalidates an in-flight batch without scheduling a retry", async () => {
+    const runtime = new FakeRuntime();
+    const pending = deferred<ReturnType<typeof response>>();
+    runtime.fetchHandler = async () => pending.promise;
+    const client = createPulsepondWithRuntime(
+      config({
+        persistence: "sessionStorage",
+        storageNamespace: "consent_flow",
+      }),
+      runtime,
+    );
+    client.track("before_opt_out");
+    const flush = client.flush();
+
+    client.optOut();
+    pending.resolve(response(503));
+    await flush;
+
+    assert.equal(runtime.requests.length, 1);
+    assert.equal(runtime.timers.size, 0);
+    assert.equal(runtime.sessionStorage.values.size, 0);
+  });
+
+  it("does not schedule retry work after reentrant diagnostic opt-out", async () => {
+    const runtime = new FakeRuntime();
+    runtime.fetchHandler = async () => response(503);
+    let client: PulsepondBrowserClient;
+    client = createPulsepondWithRuntime(
+      config({
+        onDiagnostic: (diagnostic) => {
+          if (diagnostic.code === "delivery_failed") {
+            client.optOut();
+          }
+        },
+        persistence: "sessionStorage",
+        storageNamespace: "consent_flow",
+      }),
+      runtime,
+    );
+    client.track("before_opt_out");
+
+    await client.flush();
+
+    assert.equal(runtime.requests.length, 1);
+    assert.equal(runtime.timers.size, 0);
+    assert.equal(runtime.pageHideListener, undefined);
+    assert.equal(runtime.sessionStorage.values.size, 0);
   });
 
   it("does not coalesce a new-generation flush with an aborted old request", async () => {

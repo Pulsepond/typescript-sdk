@@ -21,7 +21,7 @@ import {
 import type {
   EventProperties,
   IdentityPersistence,
-  PulsepondClient,
+  PulsepondBrowserClient,
   PulsepondConfig,
   PulsepondDiagnostic,
   PulsepondServerClient,
@@ -76,14 +76,14 @@ type DeliveryResult =
   | { readonly kind: "retry"; readonly retryAfterMs?: number }
   | { readonly kind: "too_large" };
 
-export function createPulsepond(config: PulsepondConfig): PulsepondClient {
+export function createPulsepond(config: PulsepondConfig): PulsepondBrowserClient {
   return createPulsepondWithRuntime(config, createBrowserRuntime());
 }
 
 export function createPulsepondWithRuntime(
   config: PulsepondConfig,
   runtime: PulsepondRuntime,
-): PulsepondClient {
+): PulsepondBrowserClient {
   return new PulsepondClientImpl(resolveConfig(config, "web"), runtime);
 }
 
@@ -112,7 +112,7 @@ export function createPulsepondServerWithRuntime(
   });
 }
 
-class PulsepondClientImpl implements PulsepondClient {
+class PulsepondClientImpl implements PulsepondBrowserClient {
   readonly #config: ResolvedConfig;
   readonly #runtime: PulsepondRuntime;
   readonly #identity: IdentityManager | undefined;
@@ -297,6 +297,22 @@ class PulsepondClientImpl implements PulsepondClient {
     if (this.#closed) {
       return;
     }
+    this.#discardPending();
+    this.#identity?.reset(this.#runtime.now());
+  }
+
+  optOut(): void {
+    if (this.#closed) {
+      this.#identity?.clear();
+      return;
+    }
+    this.#removePageHideListener?.();
+    this.#discardPending();
+    this.#identity?.clear();
+    this.#closed = true;
+  }
+
+  #discardPending(): void {
     this.#generation += 1;
     this.#clearFlushTimer();
     this.#clearRetryTimer();
@@ -307,7 +323,6 @@ class PulsepondClientImpl implements PulsepondClient {
     this.#flushTargetSequence = 0;
     this.#resetRetryState();
     this.#effectiveBatchSize = this.#config.batchSize;
-    this.#identity?.reset(this.#runtime.now());
   }
 
   shutdown(): Promise<void> {
@@ -654,6 +669,9 @@ class PulsepondClientImpl implements PulsepondClient {
   }
 
   #scheduleRetry(delay: number): void {
+    if (this.#closed || this.#closing) {
+      return;
+    }
     this.#clearFlushTimer();
     this.#clearRetryTimer();
     this.#retryTimer = this.#runtime.setTimeout(() => {

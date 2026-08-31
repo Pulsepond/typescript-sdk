@@ -7,6 +7,7 @@ export type {
   EventProperties,
   EventPropertyValue,
   IdentityPersistence,
+  PulsepondBrowserClient,
   PulsepondClient,
   PulsepondConfig,
   PulsepondDiagnostic,
