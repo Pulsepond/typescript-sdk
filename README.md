@@ -89,6 +89,12 @@ await pulsepond.shutdown();
 `reset()` discards unsent events and rotates the random installation and
 session IDs. It cannot retract an event that the Worker has already accepted.
 
+Use `optOut()` when a visitor withdraws analytics consent. It permanently
+closes that client, removes its lifecycle listener and stored random IDs, and
+discards unsent events without a final delivery attempt. Create a new client
+only after the visitor opts in again. Events already accepted by the Worker
+cannot be retracted.
+
 ## Server client
 
 Server applications use the same bounded batching, retry, TTL, and protocol

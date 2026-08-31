@@ -96,6 +96,14 @@ export interface PulsepondClient {
   shutdown(): Promise<void>;
 }
 
+export interface PulsepondBrowserClient extends PulsepondClient {
+  /**
+   * Permanently closes this client, discards unsent events, and removes stored identifiers
+   * without sending a final batch. Events already accepted by the Worker cannot be retracted.
+   */
+  optOut(): void;
+}
+
 export interface PulsepondServerClient {
   /**
    * Enqueues an explicit event with caller-owned identifiers and returns its UUIDv7,

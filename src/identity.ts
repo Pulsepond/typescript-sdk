@@ -111,6 +111,15 @@ export class IdentityManager {
     this.#persistSession();
   }
 
+  clear(): void {
+    this.#remove(
+      this.#installationStorage,
+      this.#installationKey,
+      this.#installationStorageKind,
+    );
+    this.#remove(this.#sessionStorage, this.#sessionKey, "session");
+  }
+
   #newId(now: number): string {
     return createUuidV7(now, this.#runtime.randomBytes);
   }
