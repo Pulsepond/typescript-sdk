@@ -59,7 +59,7 @@
     "@types/react-dom": "19.2.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "tsx": "4.23.12",
+    "tsx": "4.23.13",
     "typescript": "7.0.2"
   }
 }
